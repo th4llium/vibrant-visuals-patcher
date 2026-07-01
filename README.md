@@ -13,12 +13,15 @@ The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecra
 - Supports D3D12 FL11.0+ through downlevel device retrying
 - Spoofs D3D12 feature-level queries for downlevel-created devices
 - Keeps success output short, but prints detailed adapter diagnostics when the D3D12 check fails
+- Can be loaded alongside BetterRenderDragon
 
 ## Installation
 
 1. Install [QYCottage/ModLoader](https://github.com/QYCottage/ModLoader).
 2. Download `vibrant-visuals-patcher.dll`.
 3. Put the DLL in your Minecraft mods folder.
+
+BetterRenderDragon is not required, but `vibrant-visuals-patcher` can be used alongside it.
 
 For the Xbox/GDK install, the folder is usually:
 

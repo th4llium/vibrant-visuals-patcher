@@ -2,6 +2,8 @@
 
 `vibrant-visuals-patcher` is a native Minecraft Bedrock for Windows mod that enables Vibrant Visuals on DX12-capable devices that Minecraft blocks through its renderer, feature-level, vendor, device, or driver gates.
 
+Version 1.0.0 targets **Minecraft for Windows Client 26.31**.
+
 The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecraft's normal Vibrant Visuals path can ask for **D3D12 FL12.1+**, which blocks older GPUs and iGPUs even when they can still run the deferred renderer.
 
 ## Features

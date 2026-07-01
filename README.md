@@ -31,7 +31,7 @@ Start Minecraft normally after copying the DLL.
 Successful startup should look similar to:
 
 ```text
-[INFO] vibrant-visuals-patcher v0.1.0
+[INFO] vibrant-visuals-patcher v1.0.0
 [INFO] Author: th4llium
 [INFO] D3D12 vendor gate patched early.
 [INFO] D3D12 sampler-flags patched early.

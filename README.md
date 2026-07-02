@@ -12,7 +12,6 @@ The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecra
 - Forces the Vibrant Visuals capability gate
 - Supports D3D12 FL11.0+ through downlevel device retrying
 - Spoofs D3D12 feature-level queries for downlevel-created devices
-- Keeps success output short, but prints detailed adapter diagnostics when the D3D12 check fails
 - Supports loading alongside BetterRenderDragon
 
 ## Installation

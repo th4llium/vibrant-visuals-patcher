@@ -1,10 +1,10 @@
 # vibrant-visuals-patcher
 
-`vibrant-visuals-patcher` is a native Minecraft Bedrock for Windows mod that enables Vibrant Visuals on DX12-capable devices that Minecraft blocks through its renderer, feature-level, vendor, device, or driver gates.
+`vibrant-visuals-patcher` is a native Minecraft Bedrock for Windows mod that enables Vibrant Visuals on DX12-capable devices that Minecraft blocks through renderer, feature-level, vendor, device, or driver checks.
 
 Version 1.0.0 targets **Minecraft for Windows Client 26.31**.
 
-The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecraft's normal Vibrant Visuals path can ask for **D3D12 FL12.1+**, which blocks older GPUs and iGPUs even when they can still run the deferred renderer.
+The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecraft's normal Vibrant Visuals path can request **D3D12 FL12.1+**, which blocks older GPUs and iGPUs even when the deferred renderer can still run.
 
 ## Features
 
@@ -13,15 +13,13 @@ The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecra
 - Supports D3D12 FL11.0+ through downlevel device retrying
 - Spoofs D3D12 feature-level queries for downlevel-created devices
 - Keeps success output short, but prints detailed adapter diagnostics when the D3D12 check fails
-- Can be loaded alongside BetterRenderDragon
+- Supports loading alongside BetterRenderDragon
 
 ## Installation
 
 1. Install [QYCottage/ModLoader](https://github.com/QYCottage/ModLoader).
 2. Download `vibrant-visuals-patcher.dll`.
 3. Put the DLL in your Minecraft mods folder.
-
-BetterRenderDragon is not required, but `vibrant-visuals-patcher` can be used alongside it.
 
 For the Xbox/GDK install, the folder is usually:
 
@@ -30,6 +28,12 @@ C:\XboxGames\Minecraft for Windows\Content\mods
 ```
 
 Start Minecraft normally after copying the DLL.
+
+## BetterRenderDragon
+
+BetterRenderDragon is not required, but this mod is designed to work with it.
+
+When BetterRenderDragon is loaded, `vibrant-visuals-patcher` avoids taking over the shared Vibrant Visuals predicate before BRD scans for it. BRD installs its hook first, then this mod attaches to that hook path so Vibrant Visuals can still be forced without disabling BRD's shader reload, material redirection, or frame hooks.
 
 ## Expected Output
 
@@ -43,6 +47,14 @@ Successful startup should look similar to:
 [INFO] D3D12 downlevel retry hook installed.
 [INFO] Vibrant Visuals capability hook installed.
 [INFO] Startup complete.
+```
+
+With BetterRenderDragon loaded, successful startup should also include:
+
+```text
+[INFO] BetterRenderDragon detected; using BRD-compatible early renderer patch.
+Hooked HOOK1
+[INFO] BetterRenderDragon Vibrant Visuals hook relay redirected.
 ```
 
 If FL12.x device creation fails and the FL11 path is used, this warning is expected:

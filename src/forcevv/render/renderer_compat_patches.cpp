@@ -5,7 +5,6 @@
 #include <Windows.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -30,25 +29,6 @@ BytePatch g_samplerFlagsPatch{};
 
 constexpr std::uintptr_t kD3D12VendorGate26_31Rva = 0x0D30068F;
 constexpr std::uintptr_t kSamplerFlags26_31Rva = 0x0B769D36;
-
-std::string formatPointer(const void* pointer) {
-    char buffer[32]{};
-    sprintf_s(buffer, "0x%p", pointer);
-    return buffer;
-}
-
-std::string formatBytes(const std::uint8_t* bytes, std::size_t size) {
-    std::string result;
-    char item[8]{};
-    for (std::size_t i = 0; i < size; ++i) {
-        sprintf_s(item, "%02X", static_cast<unsigned int>(bytes[i]));
-        if (!result.empty()) {
-            result += " ";
-        }
-        result += item;
-    }
-    return result;
-}
 
 ModuleInfo getMainModuleInfo() {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleW(nullptr));
@@ -329,6 +309,30 @@ void installRendererCompatibilityPatchesEarlyNoLog() {
     if (isD3D12VendorGateUnpatched(vendor)) {
         constexpr std::uint8_t replacement[]{0x00, 0x00};
         writeEarlyBytes(vendor + 6, replacement, sizeof(replacement));
+    }
+
+    auto* sampler = addressFromRva(kSamplerFlags26_31Rva, 13);
+    if (isSamplerFlagsShape(sampler) && sampler[4] != 0x00) {
+        constexpr std::uint8_t replacement[]{0x00};
+        writeEarlyBytes(sampler + 4, replacement, sizeof(replacement));
+    }
+}
+
+void installRendererCompatibilityPatchesEarlyForBrdNoLog() {
+    auto* vendor = addressFromRva(kD3D12VendorGate26_31Rva, 16);
+    if (isD3D12VendorGateUnpatched(vendor)) {
+        if (vendor[10] == 0x0F && vendor[11] == 0x85) {
+            std::int32_t relative{};
+            std::memcpy(&relative, vendor + 12, sizeof(relative));
+            ++relative;
+
+            std::uint8_t replacement[6]{0xE9, 0, 0, 0, 0, 0x90};
+            std::memcpy(replacement + 1, &relative, sizeof(relative));
+            writeEarlyBytes(vendor + 10, replacement, sizeof(replacement));
+        } else if (vendor[10] == 0x75) {
+            constexpr std::uint8_t replacement[]{0xEB};
+            writeEarlyBytes(vendor + 10, replacement, sizeof(replacement));
+        }
     }
 
     auto* sampler = addressFromRva(kSamplerFlags26_31Rva, 13);

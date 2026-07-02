@@ -1,4 +1,5 @@
 #include "forcevv/mod.hpp"
+#include "forcevv/compat/better_render_dragon.hpp"
 #include "forcevv/render/renderer_compat_patches.hpp"
 
 #include <Windows.h>
@@ -18,7 +19,11 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     switch (reason) {
     case DLL_PROCESS_ATTACH: {
         DisableThreadLibraryCalls(instance);
-        forcevv::render::installRendererCompatibilityPatchesEarlyNoLog();
+        if (forcevv::compat::betterRenderDragonLoaded()) {
+            forcevv::render::installRendererCompatibilityPatchesEarlyForBrdNoLog();
+        } else {
+            forcevv::render::installRendererCompatibilityPatchesEarlyNoLog();
+        }
 
         HANDLE thread = CreateThread(nullptr, 0, startupThread, instance, 0, nullptr);
         if (thread != nullptr) {

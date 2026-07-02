@@ -1,5 +1,6 @@
 #include "forcevv/gates/vibrant_visuals_gate.hpp"
 
+#include "forcevv/compat/better_render_dragon.hpp"
 #include "forcevv/log.hpp"
 
 #include <Windows.h>
@@ -8,7 +9,6 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -42,31 +42,12 @@ constexpr std::uintptr_t kCapabilityFlags26_31Rva = 0x068A7280;
 
 CapabilityFlagsFn g_originalCapabilityFlags{};
 void* g_capabilityFlagsTarget{};
+void** g_brdRelaySlot{};
+void* g_brdRelayOriginal{};
+std::atomic_bool g_brdWaitStarted{false};
 std::atomic_bool g_loggedCapabilityFlagsCall{false};
 
-std::string formatPointer(const void* pointer) {
-    char buffer[32]{};
-    sprintf_s(buffer, "0x%p", pointer);
-    return buffer;
-}
-
-std::string formatHex(std::uintptr_t value) {
-    char buffer[32]{};
-    sprintf_s(buffer, "0x%llX", static_cast<unsigned long long>(value));
-    return buffer;
-}
-
-std::string formatFlagBytes(const std::uint8_t* flags) {
-    std::string result = "[";
-    for (std::size_t i = 0; i < 5; ++i) {
-        if (i != 0) {
-            result += ",";
-        }
-        result += std::to_string(static_cast<unsigned int>(flags[i]));
-    }
-    result += "]";
-    return result;
-}
+bool __fastcall hkCapabilityFlags(void* self);
 
 ModuleInfo mainModuleInfo() {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleW(nullptr));
@@ -174,6 +155,98 @@ void* resolveCapabilityFlagsTarget() {
     return scanCapabilityFlagsSignature(module);
 }
 
+bool findMinHookRelaySlot(std::uint8_t* target, void*** slot) {
+    if (target == nullptr || slot == nullptr) {
+        return false;
+    }
+
+    std::uint8_t* relay = nullptr;
+    if (target[0] == 0xE9) {
+        std::int32_t relative{};
+        std::memcpy(&relative, target + 1, sizeof(relative));
+        relay = target + 5 + relative;
+    } else if (target[0] == 0xFF && target[1] == 0x25) {
+        relay = target;
+    }
+
+    if (relay == nullptr
+        || relay[0] != 0xFF
+        || relay[1] != 0x25
+        || relay[2] != 0x00
+        || relay[3] != 0x00
+        || relay[4] != 0x00
+        || relay[5] != 0x00) {
+        return false;
+    }
+
+    *slot = reinterpret_cast<void**>(relay + 6);
+    return true;
+}
+
+bool attachToBrdCapabilityHook(void* target) {
+    void** relaySlot{};
+    if (!findMinHookRelaySlot(reinterpret_cast<std::uint8_t*>(target), &relaySlot)) {
+        return false;
+    }
+
+    if (*relaySlot == reinterpret_cast<void*>(&hkCapabilityFlags)) {
+        return true;
+    }
+
+    DWORD oldProtect{};
+    if (!VirtualProtect(relaySlot, sizeof(void*), PAGE_READWRITE, &oldProtect)) {
+        log::warn("Could not change protection for BetterRenderDragon Vibrant Visuals hook relay.");
+        return false;
+    }
+
+    g_brdRelaySlot = relaySlot;
+    g_brdRelayOriginal = *relaySlot;
+    *relaySlot = reinterpret_cast<void*>(&hkCapabilityFlags);
+
+    FlushInstructionCache(GetCurrentProcess(), relaySlot, sizeof(void*));
+    DWORD ignored{};
+    VirtualProtect(relaySlot, sizeof(void*), oldProtect, &ignored);
+    log::info("BetterRenderDragon Vibrant Visuals hook relay redirected.");
+    return true;
+}
+
+DWORD WINAPI brdHookWaitThread(LPVOID) {
+    const ModuleInfo module = mainModuleInfo();
+    auto* target = addressFromRva(module, kCapabilityFlags26_31Rva, kCapabilityFlagsSignature.size());
+    if (target == nullptr) {
+        log::warn("BetterRenderDragon Vibrant Visuals hook wait could not resolve the 26.31 predicate RVA.");
+        return 0;
+    }
+
+    log::info("BetterRenderDragon detected; waiting for BRD Vibrant Visuals hook.");
+    for (int attempt = 0; attempt < 600; ++attempt) {
+        if (attachToBrdCapabilityHook(target)) {
+            return 0;
+        }
+
+        Sleep(100);
+    }
+
+    log::warn("BetterRenderDragon Vibrant Visuals hook was not observed in time.");
+    return 0;
+}
+
+bool startBrdCompatibilityWait() {
+    if (g_brdWaitStarted.exchange(true)) {
+        return true;
+    }
+
+    HANDLE thread = CreateThread(nullptr, 0, brdHookWaitThread, nullptr, 0, nullptr);
+    if (thread == nullptr) {
+        log::warn("Could not start BetterRenderDragon Vibrant Visuals compatibility thread.");
+        g_brdWaitStarted = false;
+        return false;
+    }
+
+    CloseHandle(thread);
+    return true;
+}
+
 bool __fastcall hkCapabilityFlags(void* self) {
     if (self != nullptr) {
         auto* flags = reinterpret_cast<std::uint8_t*>(self) + 48;
@@ -201,8 +274,12 @@ bool installVibrantVisualsGateHooks(const GatePatchConfig& config) {
         return false;
     }
 
-    if (g_capabilityFlagsTarget != nullptr) {
+    if (g_capabilityFlagsTarget != nullptr || g_brdRelaySlot != nullptr) {
         return true;
+    }
+
+    if (compat::betterRenderDragonLoaded()) {
+        return startBrdCompatibilityWait();
     }
 
     void* target = resolveCapabilityFlagsTarget();
@@ -232,6 +309,19 @@ bool installVibrantVisualsGateHooks(const GatePatchConfig& config) {
 }
 
 void removeVibrantVisualsGateHooks() {
+    if (g_brdRelaySlot != nullptr) {
+        DWORD oldProtect{};
+        if (VirtualProtect(g_brdRelaySlot, sizeof(void*), PAGE_READWRITE, &oldProtect)) {
+            *g_brdRelaySlot = g_brdRelayOriginal;
+            FlushInstructionCache(GetCurrentProcess(), g_brdRelaySlot, sizeof(void*));
+            DWORD ignored{};
+            VirtualProtect(g_brdRelaySlot, sizeof(void*), oldProtect, &ignored);
+        }
+
+        g_brdRelaySlot = nullptr;
+        g_brdRelayOriginal = nullptr;
+    }
+
     if (g_capabilityFlagsTarget == nullptr) {
         return;
     }

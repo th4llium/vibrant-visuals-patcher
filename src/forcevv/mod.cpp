@@ -1,5 +1,6 @@
 #include "forcevv/mod.hpp"
 
+#include "forcevv/compat/better_render_dragon.hpp"
 #include "forcevv/dx/dx12_probe.hpp"
 #include "forcevv/gates/vibrant_visuals_gate.hpp"
 #include "forcevv/hooks/hook_manager.hpp"
@@ -35,7 +36,11 @@ int run(HMODULE module) {
         return 1;
     }
 
-    if (!render::installRendererCompatibilityPatches()) {
+    const bool betterRenderDragonLoaded = compat::betterRenderDragonLoaded();
+
+    if (betterRenderDragonLoaded) {
+        log::info("BetterRenderDragon detected; using BRD-compatible early renderer patch.");
+    } else if (!render::installRendererCompatibilityPatches()) {
         log::warn("Renderer compatibility patch was not applied.");
     }
 

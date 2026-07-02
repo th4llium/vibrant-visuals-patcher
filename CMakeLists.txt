@@ -14,6 +14,7 @@ endif()
 
 add_library(vibrant_visuals_patcher SHARED
     src/dllmain.cpp
+    src/forcevv/compat/better_render_dragon.cpp
     src/forcevv/dx/dx12_probe.cpp
     src/forcevv/gates/vibrant_visuals_gate.cpp
     src/forcevv/hooks/hook_manager.cpp

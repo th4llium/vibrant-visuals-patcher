@@ -4,8 +4,8 @@
 
 #include <Windows.h>
 
+#include <array>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -26,9 +26,29 @@ struct BytePatch {
 
 BytePatch g_vendorGatePatch{};
 BytePatch g_samplerFlagsPatch{};
+std::uint8_t* g_earlyVendorGatePatch{};
+std::uint8_t* g_earlySamplerFlagsPatch{};
 
 constexpr std::uintptr_t kD3D12VendorGate26_31Rva = 0x0D30068F;
 constexpr std::uintptr_t kSamplerFlags26_31Rva = 0x0B769D36;
+
+constexpr std::array<int, 12> kD3D12VendorGateLongSignature{
+    0x81, 0xBE, -1, -1, -1, -1,
+    0x86, 0x80, 0x00, 0x00,
+    0x0F, 0x85,
+};
+
+constexpr std::array<int, 11> kD3D12VendorGateShortSignature{
+    0x81, 0xBE, -1, -1, -1, -1,
+    0x86, 0x80, 0x00, 0x00,
+    0x75,
+};
+
+constexpr std::array<int, 12> kSamplerFlagsSignature{
+    0x0D, -1, -1, -1, -1,
+    0x80, 0x79, -1, -1,
+    0x0F, 0x44, 0xC2,
+};
 
 ModuleInfo getMainModuleInfo() {
     auto* base = reinterpret_cast<std::uint8_t*>(GetModuleHandleW(nullptr));
@@ -105,43 +125,13 @@ void writeEarlyBytes(std::uint8_t* address, const std::uint8_t* bytes, std::size
     VirtualProtect(address, size, oldProtect, &ignored);
 }
 
-std::vector<int> parsePattern(std::string_view signature) {
-    std::vector<int> pattern;
-
-    for (std::size_t i = 0; i < signature.size();) {
-        while (i < signature.size() && signature[i] == ' ') {
-            ++i;
-        }
-        if (i >= signature.size()) {
-            break;
-        }
-
-        if (signature[i] == '?') {
-            pattern.push_back(-1);
-            while (i < signature.size() && signature[i] == '?') {
-                ++i;
-            }
-            continue;
-        }
-
-        if (i + 1 >= signature.size()) {
-            break;
-        }
-
-        char buffer[3]{signature[i], signature[i + 1], 0};
-        pattern.push_back(static_cast<int>(std::strtoul(buffer, nullptr, 16)));
-        i += 2;
-    }
-
-    return pattern;
-}
-
-bool patternMatches(const std::uint8_t* cursor, const std::vector<int>& pattern) {
+template <std::size_t Size>
+bool patternMatches(const std::uint8_t* cursor, const std::array<int, Size>& pattern) {
     if (cursor == nullptr) {
         return false;
     }
 
-    for (std::size_t i = 0; i < pattern.size(); ++i) {
+    for (std::size_t i = 0; i < Size; ++i) {
         if (pattern[i] >= 0 && cursor[i] != static_cast<std::uint8_t>(pattern[i])) {
             return false;
         }
@@ -150,18 +140,14 @@ bool patternMatches(const std::uint8_t* cursor, const std::vector<int>& pattern)
     return true;
 }
 
-bool slowScanEnabled() {
-    return GetEnvironmentVariableW(L"VVP_SLOW_COMPAT_SCAN", nullptr, 0) != 0;
-}
-
-std::uint8_t* findPattern(std::string_view signature) {
+template <std::size_t Size>
+std::uint8_t* findPattern(const std::array<int, Size>& pattern) {
     const ModuleInfo module = getMainModuleInfo();
-    const std::vector<int> pattern = parsePattern(signature);
-    if (module.base == nullptr || module.size < pattern.size() || pattern.empty()) {
+    if (module.base == nullptr || module.size < Size) {
         return nullptr;
     }
 
-    const std::size_t maxOffset = module.size - pattern.size();
+    const std::size_t maxOffset = module.size - Size;
     for (std::size_t offset = 0; offset <= maxOffset; ++offset) {
         auto* cursor = module.base + offset;
         if (patternMatches(cursor, pattern)) {
@@ -213,29 +199,21 @@ bool restorePatch(BytePatch& patch, std::string_view label) {
 }
 
 std::uint8_t* findMovedVendorGate() {
-    if (!slowScanEnabled()) {
-        log::warn("D3D12 vendor gate slow scan skipped.");
-        return nullptr;
-    }
-
-    auto* ptr = findPattern("81 BE ? ? ? ? 86 80 00 00 0F 85");
-    if (ptr == nullptr) {
-        ptr = findPattern("81 BE ? ? ? ? 86 80 00 00 75");
-    }
-    return ptr;
+    auto* ptr = findPattern(kD3D12VendorGateLongSignature);
+    return ptr != nullptr ? ptr : findPattern(kD3D12VendorGateShortSignature);
 }
 
 std::uint8_t* findMovedSamplerFlags() {
-    if (!slowScanEnabled()) {
-        log::warn("D3D12 sampler-flags slow scan skipped.");
-        return nullptr;
-    }
-
-    return findPattern("0D ? ? ? ? 80 79 ? ? 0F 44 C2");
+    return findPattern(kSamplerFlagsSignature);
 }
 
 bool patchVendorGate() {
     if (g_vendorGatePatch.address != nullptr) {
+        return true;
+    }
+
+    if (isD3D12VendorGatePatched(g_earlyVendorGatePatch)) {
+        log::info("D3D12 vendor gate patched early.");
         return true;
     }
 
@@ -273,6 +251,11 @@ bool patchSamplerFlags() {
         return true;
     }
 
+    if (isSamplerFlagsShape(g_earlySamplerFlagsPatch) && g_earlySamplerFlagsPatch[4] == 0x00) {
+        log::info("D3D12 sampler-flags patched early.");
+        return true;
+    }
+
     auto* ptr = addressFromRva(kSamplerFlags26_31Rva, 13);
     if (isSamplerFlagsShape(ptr) && ptr[4] == 0x00) {
         log::info("D3D12 sampler-flags patched early.");
@@ -306,20 +289,31 @@ bool patchSamplerFlags() {
 
 void installRendererCompatibilityPatchesEarlyNoLog() {
     auto* vendor = addressFromRva(kD3D12VendorGate26_31Rva, 15);
+    if (!isD3D12VendorGateUnpatched(vendor)) {
+        vendor = findMovedVendorGate();
+    }
     if (isD3D12VendorGateUnpatched(vendor)) {
         constexpr std::uint8_t replacement[]{0x00, 0x00};
         writeEarlyBytes(vendor + 6, replacement, sizeof(replacement));
+        g_earlyVendorGatePatch = vendor;
     }
 
     auto* sampler = addressFromRva(kSamplerFlags26_31Rva, 13);
+    if (!(isSamplerFlagsShape(sampler) && sampler[4] != 0x00)) {
+        sampler = findMovedSamplerFlags();
+    }
     if (isSamplerFlagsShape(sampler) && sampler[4] != 0x00) {
         constexpr std::uint8_t replacement[]{0x00};
         writeEarlyBytes(sampler + 4, replacement, sizeof(replacement));
+        g_earlySamplerFlagsPatch = sampler;
     }
 }
 
 void installRendererCompatibilityPatchesEarlyForBrdNoLog() {
     auto* vendor = addressFromRva(kD3D12VendorGate26_31Rva, 16);
+    if (!isD3D12VendorGateUnpatched(vendor)) {
+        vendor = findMovedVendorGate();
+    }
     if (isD3D12VendorGateUnpatched(vendor)) {
         if (vendor[10] == 0x0F && vendor[11] == 0x85) {
             std::int32_t relative{};
@@ -329,16 +323,22 @@ void installRendererCompatibilityPatchesEarlyForBrdNoLog() {
             std::uint8_t replacement[6]{0xE9, 0, 0, 0, 0, 0x90};
             std::memcpy(replacement + 1, &relative, sizeof(relative));
             writeEarlyBytes(vendor + 10, replacement, sizeof(replacement));
+            g_earlyVendorGatePatch = vendor;
         } else if (vendor[10] == 0x75) {
             constexpr std::uint8_t replacement[]{0xEB};
             writeEarlyBytes(vendor + 10, replacement, sizeof(replacement));
+            g_earlyVendorGatePatch = vendor;
         }
     }
 
     auto* sampler = addressFromRva(kSamplerFlags26_31Rva, 13);
+    if (!(isSamplerFlagsShape(sampler) && sampler[4] != 0x00)) {
+        sampler = findMovedSamplerFlags();
+    }
     if (isSamplerFlagsShape(sampler) && sampler[4] != 0x00) {
         constexpr std::uint8_t replacement[]{0x00};
         writeEarlyBytes(sampler + 4, replacement, sizeof(replacement));
+        g_earlySamplerFlagsPatch = sampler;
     }
 }
 

@@ -103,6 +103,20 @@ cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
+
+Requirements:
+
+- Windows
+- Visual Studio 2022 Build Tools with MSVC
+- CMake 3.24 or newer
+
+Build:
+
+```powershell
+cmake -S . -B build -A x64
+cmake --build build --config Release
+```
+
 Output:
 
 ```text
@@ -112,6 +126,8 @@ build\Release\vibrant-visuals-patcher.dll
 ## Notes
 
 This mod cannot add hardware features that a GPU does not physically support. The FL11.0+ path works by bypassing Minecraft's allowlist and reported-feature-level gates so compatible downlevel DX12 devices can try the renderer.
+
+**Note on Community Documents:** The text for the community standards documents (`CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `SECURITY.md`, and issue templates) were generated with the assistance of AI to ensure they meet standard open-source community guidelines. The core logic and main C++ codebase, however, are 100% human-written!
 
 ## License
 

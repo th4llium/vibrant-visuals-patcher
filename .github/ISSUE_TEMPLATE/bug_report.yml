@@ -1,0 +1,71 @@
+name: Bug Report
+description: Create a report to help us improve vibrant-visuals-patcher
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide as much detail as possible.
+  - type: input
+    id: vvp_version
+    attributes:
+      label: vibrant-visuals-patcher Version
+      description: What version of the mod are you using? (e.g., v1.0.2)
+    validations:
+      required: true
+  - type: input
+    id: mc_version
+    attributes:
+      label: Minecraft Version
+      description: What version of Minecraft Bedrock are you running? (e.g., 1.20.71)
+    validations:
+      required: true
+  - type: input
+    id: brd_version
+    attributes:
+      label: BetterRenderDragon Version (Optional)
+      description: If you are using BetterRenderDragon alongside this mod, what version is it? Leave blank if not used.
+    validations:
+      required: false
+  - type: input
+    id: gpu_model
+    attributes:
+      label: GPU Model and Driver Version
+      description: What is your GPU model and driver version? (e.g., Intel UHD 620, Driver 31.0.101.2111)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Install mod loader...
+        2. Launch game...
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Please paste the contents of `%TEMP%\vibrant-visuals-patcher.log` here, or upload the file.
+      render: text
+    validations:
+      required: false

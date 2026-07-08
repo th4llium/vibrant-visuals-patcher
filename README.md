@@ -103,20 +103,6 @@ cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-
-Requirements:
-
-- Windows
-- Visual Studio 2022 Build Tools with MSVC
-- CMake 3.24 or newer
-
-Build:
-
-```powershell
-cmake -S . -B build -A x64
-cmake --build build --config Release
-```
-
 Output:
 
 ```text

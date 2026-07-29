@@ -1,15 +1,17 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
-#include <vector>
 
 #include <Windows.h>
 
 namespace forcevv::dx {
 
+constexpr std::size_t MAX_ADAPTERS = 8;
+
 struct AdapterInfo {
-    std::string name;
+    char name[128]{};
     std::uint32_t vendorId{};
     std::uint32_t deviceId{};
     bool software{};
@@ -26,7 +28,8 @@ struct ProbeResult {
     HRESULT enumerationResult{S_OK};
     bool hasSupportedAdapter{};
     bool usingFl11{};
-    std::vector<AdapterInfo> adapters;
+    AdapterInfo adapters[MAX_ADAPTERS]{};
+    std::size_t adapterCount{};
 };
 
 ProbeResult probeD3D12Support();

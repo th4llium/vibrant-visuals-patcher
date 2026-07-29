@@ -9,7 +9,10 @@ option(VVP_FETCH_DEPS "Fetch third-party dependencies with CMake FetchContent" O
 option(VVP_ENABLE_CONSOLE "Open a debug console when the DLL is injected" OFF)
 
 if(MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:DLL>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
+    string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 endif()
 
 add_library(vibrant_visuals_patcher SHARED
@@ -38,7 +41,8 @@ target_compile_definitions(vibrant_visuals_patcher PRIVATE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
     UNICODE
-    _UNICODE)
+    _UNICODE
+    _HAS_EXCEPTIONS=0)
 
 if(VVP_ENABLE_CONSOLE)
     target_compile_definitions(vibrant_visuals_patcher PRIVATE VVP_ENABLE_CONSOLE=1)
@@ -48,9 +52,11 @@ if(MSVC)
     target_compile_options(vibrant_visuals_patcher PRIVATE
         /W4
         /permissive-
-        /EHsc
-        /Zc:__cplusplus)
-
+        /Zc:__cplusplus
+        $<$<CONFIG:Release>:/O1 /Os /GL /Gy /Gw /GR- /EHs-c->
+        $<$<CONFIG:Debug>:/EHsc>)
+    target_link_options(vibrant_visuals_patcher PRIVATE
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF /MERGE:.rdata=.text>)
 else()
     target_compile_options(vibrant_visuals_patcher PRIVATE
         -Wall
@@ -71,7 +77,9 @@ if(VVP_FETCH_DEPS)
         GIT_TAG v1.3.4
         GIT_SHALLOW TRUE)
 
+    set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(minhook)
+    set(CMAKE_WARN_DEPRECATED ON CACHE BOOL "" FORCE)
 
 endif()
 

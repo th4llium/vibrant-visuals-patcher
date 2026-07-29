@@ -5,8 +5,7 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 
-#include <iomanip>
-#include <sstream>
+#include <cstdio>
 #include <string>
 
 using Microsoft::WRL::ComPtr;
@@ -14,37 +13,31 @@ using Microsoft::WRL::ComPtr;
 namespace forcevv::dx {
 namespace {
 
-std::string wideToUtf8(const wchar_t* value) {
-    if (value == nullptr || value[0] == L'\0') {
-        return {};
+void wideToUtf8(const wchar_t* src, char* dst, std::size_t dstSize) {
+    if (src == nullptr || src[0] == L'\0' || dst == nullptr || dstSize == 0) {
+        if (dst && dstSize > 0) dst[0] = '\0';
+        return;
     }
 
-    const int required = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
-    if (required <= 1) {
-        return {};
-    }
-
-    std::string result(static_cast<std::size_t>(required - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, value, -1, result.data(), required, nullptr, nullptr);
-    return result;
+    WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, static_cast<int>(dstSize), nullptr, nullptr);
+    dst[dstSize - 1] = '\0';
 }
 
 std::string hresultText(HRESULT result) {
-    std::ostringstream stream;
-    stream << "0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0')
-           << static_cast<std::uint32_t>(result);
-    return stream.str();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "0x%08X", static_cast<std::uint32_t>(result));
+    return buf;
 }
 
 std::string hexText(std::uint32_t value, int width) {
-    std::ostringstream stream;
-    stream << "0x" << std::hex << std::uppercase << std::setw(width) << std::setfill('0') << value;
-    return stream.str();
+    char buf[16];
+    snprintf(buf, sizeof(buf), "0x%0*X", width, value);
+    return buf;
 }
 
 bool envDisabled(const wchar_t* name) {
     wchar_t value[8]{};
-    const DWORD length = GetEnvironmentVariableW(name, value, static_cast<DWORD>(std::size(value)));
+    const DWORD length = GetEnvironmentVariableW(name, value, static_cast<DWORD>(sizeof(value) / sizeof(wchar_t)));
     return length != 0 && value[0] == L'0';
 }
 
@@ -57,7 +50,7 @@ AdapterInfo readAdapter(IDXGIAdapter1* adapter) {
 
     DXGI_ADAPTER_DESC1 desc{};
     if (SUCCEEDED(adapter->GetDesc1(&desc))) {
-        info.name = wideToUtf8(desc.Description);
+        wideToUtf8(desc.Description, info.name, sizeof(info.name));
         info.vendorId = desc.VendorId;
         info.deviceId = desc.DeviceId;
         info.software = (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) != 0;
@@ -94,7 +87,7 @@ ProbeResult probeD3D12Support() {
     ComPtr<IDXGIFactory6> factory6;
     factory.As(&factory6);
 
-    for (UINT index = 0;; ++index) {
+    for (UINT index = 0; index < MAX_ADAPTERS; ++index) {
         ComPtr<IDXGIAdapter1> adapter;
         if (factory6) {
             hr = factory6->EnumAdapterByGpuPreference(
@@ -121,42 +114,48 @@ ProbeResult probeD3D12Support() {
             result.usingFl11 = true;
         }
 
-        result.adapters.push_back(std::move(info));
+        result.adapters[result.adapterCount++] = info;
     }
 
     return result;
 }
 
 std::string formatFailureReport(const ProbeResult& result) {
-    std::ostringstream stream;
-
-    stream << "D3D12 support check failed.\n";
-    stream << "Factory: " << (result.factoryCreated ? "created" : "failed")
-           << " result=" << hresultText(result.factoryResult) << "\n";
-    stream << "FL11 experimental mode: " << (result.allowFl11 ? "enabled" : "disabled") << "\n";
+    std::string report = "D3D12 support check failed.\n";
+    report += "Factory: ";
+    report += (result.factoryCreated ? "created" : "failed");
+    report += " result=" + hresultText(result.factoryResult) + "\n";
+    report += "FL11 experimental mode: ";
+    report += (result.allowFl11 ? "enabled\n" : "disabled\n");
 
     if (FAILED(result.enumerationResult)) {
-        stream << "Enumeration result: " << hresultText(result.enumerationResult) << "\n";
+        report += "Enumeration result: " + hresultText(result.enumerationResult) + "\n";
     }
 
-    if (result.adapters.empty()) {
-        stream << "Adapters: none\n";
-        return stream.str();
+    if (result.adapterCount == 0) {
+        report += "Adapters: none\n";
+        return report;
     }
 
-    for (std::size_t i = 0; i < result.adapters.size(); ++i) {
+    for (std::size_t i = 0; i < result.adapterCount; ++i) {
         const AdapterInfo& adapter = result.adapters[i];
-        stream << "Adapter " << i << ": " << adapter.name << "\n";
-        stream << "  vendor=" << hexText(adapter.vendorId, 4)
-               << " device=" << hexText(adapter.deviceId, 4)
-               << " software=" << (adapter.software ? "yes" : "no") << "\n";
-        stream << "  D3D12 FL12.0: " << (adapter.supportsFl12 ? "yes" : "no")
-               << " result=" << hresultText(adapter.fl12Result) << "\n";
-        stream << "  D3D12 FL11.0: " << (adapter.supportsFl11 ? "yes" : "no")
-               << " result=" << hresultText(adapter.fl11Result) << "\n";
+        char numBuf[16];
+        snprintf(numBuf, sizeof(numBuf), "%zu", i);
+        report += "Adapter ";
+        report += numBuf;
+        report += ": ";
+        report += adapter.name;
+        report += "\n";
+        report += "  vendor=" + hexText(adapter.vendorId, 4);
+        report += " device=" + hexText(adapter.deviceId, 4);
+        report += " software=" + std::string(adapter.software ? "yes\n" : "no\n");
+        report += "  D3D12 FL12.0: " + std::string(adapter.supportsFl12 ? "yes" : "no");
+        report += " result=" + hresultText(adapter.fl12Result) + "\n";
+        report += "  D3D12 FL11.0: " + std::string(adapter.supportsFl11 ? "yes" : "no");
+        report += " result=" + hresultText(adapter.fl11Result) + "\n";
     }
 
-    return stream.str();
+    return report;
 }
 
 }

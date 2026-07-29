@@ -2,21 +2,21 @@
 
 #include <Windows.h>
 
-#include <chrono>
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <mutex>
-#include <sstream>
-#include <string>
+#include <cstdio>
+#include <cstring>
 #include <string_view>
 
 namespace forcevv::log {
 namespace {
 
-std::mutex g_mutex;
-std::ofstream g_file;
+SRWLOCK g_srwLock = SRWLOCK_INIT;
+HANDLE g_fileHandle = INVALID_HANDLE_VALUE;
 bool g_consoleAttached = false;
+
+struct ScopedLock {
+    ScopedLock() { AcquireSRWLockExclusive(&g_srwLock); }
+    ~ScopedLock() { ReleaseSRWLockExclusive(&g_srwLock); }
+};
 
 const char* levelName(Level level) {
     switch (level) {
@@ -27,32 +27,16 @@ const char* levelName(Level level) {
     case Level::Error:
         return "ERROR";
     }
-
     return "LOG";
 }
 
-std::string timestamp() {
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t time = std::chrono::system_clock::to_time_t(now);
-
-    std::tm local{};
-    localtime_s(&local, &time);
-
-    std::ostringstream stream;
-    stream << std::put_time(&local, "%Y-%m-%d %H:%M:%S");
-    return stream.str();
-}
-
-std::string defaultLogPath() {
-    char tempPath[MAX_PATH]{};
-    const DWORD length = GetTempPathA(static_cast<DWORD>(sizeof(tempPath)), tempPath);
-    if (length == 0 || length >= sizeof(tempPath)) {
-        return "vibrant-visuals-patcher.log";
+void defaultLogPath(char* outPath, DWORD outSize) {
+    const DWORD length = GetTempPathA(outSize, outPath);
+    if (length == 0 || length >= outSize - 30) {
+        strncpy_s(outPath, outSize, "vibrant-visuals-patcher.log", _TRUNCATE);
+        return;
     }
-
-    std::string path(tempPath);
-    path += "vibrant-visuals-patcher.log";
-    return path;
+    strncat_s(outPath, outSize, "vibrant-visuals-patcher.log", _TRUNCATE);
 }
 
 void openConsole() {
@@ -73,7 +57,7 @@ void openConsole() {
 #endif
 }
 
-void writeToConsoleHandle(Level level, const std::string& line) {
+void writeToConsoleHandle(Level level, const char* buffer, DWORD length) {
     const DWORD handleId = level == Level::Error ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE;
     HANDLE handle = GetStdHandle(handleId);
     if (handle == nullptr || handle == INVALID_HANDLE_VALUE) {
@@ -81,48 +65,68 @@ void writeToConsoleHandle(Level level, const std::string& line) {
     }
 
     DWORD ignored{};
-    WriteFile(handle, line.data(), static_cast<DWORD>(line.size()), &ignored, nullptr);
+    WriteFile(handle, buffer, length, &ignored, nullptr);
 }
 
 void writeUnlocked(Level level, std::string_view message) {
-    const std::string visibleLine = "[" + std::string(levelName(level)) + "] " + std::string(message) + "\n";
-    const std::string fileLine = "[" + timestamp() + "][" + levelName(level) + "] " + std::string(message) + "\n";
+    char visibleLine[1024];
+    int visLen = snprintf(visibleLine, sizeof(visibleLine), "[%s] %.*s\n",
+                          levelName(level), static_cast<int>(message.size()), message.data());
+    if (visLen > 0) {
+        OutputDebugStringA(visibleLine);
+        writeToConsoleHandle(level, visibleLine, static_cast<DWORD>(visLen));
+    }
 
-    OutputDebugStringA(visibleLine.c_str());
-    writeToConsoleHandle(level, visibleLine);
-
-    if (g_file.is_open()) {
-        g_file << fileLine;
-        g_file.flush();
+    if (g_fileHandle != INVALID_HANDLE_VALUE) {
+        SYSTEMTIME st{};
+        GetLocalTime(&st);
+        char fileLine[1024];
+        int fileLen = snprintf(fileLine, sizeof(fileLine), "[%04d-%02d-%02d %02d:%02d:%02d][%s] %.*s\n",
+                               st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
+                               levelName(level), static_cast<int>(message.size()), message.data());
+        if (fileLen > 0) {
+            DWORD written{};
+            WriteFile(g_fileHandle, fileLine, static_cast<DWORD>(fileLen), &written, nullptr);
+        }
     }
 }
 
 }
 
 void initialize() {
-    std::lock_guard lock(g_mutex);
+    ScopedLock lock;
 
-    if (g_file.is_open()) {
+    if (g_fileHandle != INVALID_HANDLE_VALUE) {
         return;
     }
 
     openConsole();
 
-    const std::string path = defaultLogPath();
-    g_file.open(path, std::ios::out | std::ios::app);
+    char path[MAX_PATH]{};
+    defaultLogPath(path, static_cast<DWORD>(sizeof(path)));
+
+    g_fileHandle = CreateFileA(
+        path,
+        FILE_APPEND_DATA,
+        FILE_SHARE_READ,
+        nullptr,
+        OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
 }
 
 void shutdown() {
-    std::lock_guard lock(g_mutex);
+    ScopedLock lock;
 
-    if (g_file.is_open()) {
-        g_file.flush();
-        g_file.close();
+    if (g_fileHandle != INVALID_HANDLE_VALUE) {
+        CloseHandle(g_fileHandle);
+        g_fileHandle = INVALID_HANDLE_VALUE;
     }
 }
 
 void write(Level level, std::string_view message) {
-    std::lock_guard lock(g_mutex);
+    ScopedLock lock;
     writeUnlocked(level, message);
 }
 
@@ -139,26 +143,25 @@ void error(std::string_view message) {
 }
 
 void writeMultiline(Level level, std::string_view message) {
-    std::string current;
+    std::string_view remaining = message;
 
-    for (const char ch : message) {
-        if (ch == '\r') {
-            continue;
+    while (!remaining.empty()) {
+        const std::size_t pos = remaining.find('\n');
+        std::string_view line = (pos == std::string_view::npos) ? remaining : remaining.substr(0, pos);
+
+        if (!line.empty() && line.back() == '\r') {
+            line.remove_suffix(1);
         }
 
-        if (ch == '\n') {
-            if (!current.empty()) {
-                write(level, current);
-                current.clear();
-            }
-            continue;
+        if (!line.empty()) {
+            write(level, line);
         }
 
-        current.push_back(ch);
-    }
+        if (pos == std::string_view::npos) {
+            break;
+        }
 
-    if (!current.empty()) {
-        write(level, current);
+        remaining.remove_prefix(pos + 1);
     }
 }
 

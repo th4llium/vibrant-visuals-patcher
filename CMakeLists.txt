@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(vibrant_visuals_patcher
-    VERSION 1.0.3
+    VERSION 1.1.0
     DESCRIPTION "Minecraft Bedrock Vibrant Visuals compatibility patcher"
     LANGUAGES CXX)
 

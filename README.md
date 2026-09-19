@@ -16,8 +16,15 @@ The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecra
 
 ## Installation
 
+### Automatic (Recommended)
+
+1. Download **`VibrantVisualPatcherInstaller.exe`** from [Releases](https://github.com/th4llium/vibrant-visuals-patcher/releases).
+2. Run it and click **Install**. It automatically downloads ModLoader (`WINHTTP.dll`) and `vibrant-visuals-patcher.dll` directly to your Minecraft folder.
+
+### Manual
+
 1. Install [QYCottage/ModLoader](https://github.com/QYCottage/ModLoader).
-2. Download `vibrant-visuals-patcher.dll`.
+2. Download `vibrant-visuals-patcher.dll` from [Releases](https://github.com/th4llium/vibrant-visuals-patcher/releases).
 3. Put the DLL in your Minecraft mods folder.
 
 For the Xbox/GDK install, the folder is usually:

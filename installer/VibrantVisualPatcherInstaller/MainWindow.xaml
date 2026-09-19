@@ -1,0 +1,249 @@
+<Window x:Class="VibrantVisualPatcherInstaller.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Vibrant Visual Patcher Installer"
+        Width="480" Height="405"
+        WindowStyle="None"
+        Background="{DynamicResource OpaqueWindowBg}"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        SourceInitialized="Window_SourceInitialized"
+        Loaded="Window_Loaded">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"
+                      ResizeBorderThickness="0"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="CloseBtn" TargetType="Button">
+            <Setter Property="Background"   Value="Transparent"/>
+            <Setter Property="BorderBrush"  Value="Transparent"/>
+            <Setter Property="Cursor"       Value="Hand"/>
+            <Setter Property="Focusable"    Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="7" Padding="7">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SeparatorBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryActionBtn" TargetType="Button">
+            <Setter Property="Background"      Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="Foreground"      Value="{DynamicResource OpaqueWindowBg}"/>
+            <Setter Property="FontFamily"      Value="Segoe UI Variable, Segoe UI"/>
+            <Setter Property="FontSize"        Value="12.5"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Padding"         Value="22,7"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="MinimalProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height"   Value="3"/>
+            <Setter Property="Minimum"  Value="0"/>
+            <Setter Property="Maximum"  Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{DynamicResource TrackBrush}" CornerRadius="1.5"/>
+                            <Border x:Name="PART_Indicator" HorizontalAlignment="Left"
+                                    Background="{DynamicResource AccentBrush}" CornerRadius="1.5"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="MainBorder"
+            BorderBrush="{DynamicResource PanelBorder}"
+            BorderThickness="1"
+            Background="{DynamicResource OpaqueWindowBg}"
+            MouseDown="Border_MouseDown">
+        <StackPanel Margin="32,24,32,28">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="Vibrant Visual Patcher"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="19" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryText}"
+                               TextOptions.TextRenderingMode="ClearType"/>
+                    <TextBlock Text="One-click installer"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="12"
+                               Foreground="{DynamicResource SecondaryText}"
+                               Margin="0,3,0,0"/>
+                </StackPanel>
+
+                <Button Grid.Column="1" x:Name="CloseBtn"
+                        Style="{StaticResource CloseBtn}"
+                        VerticalAlignment="Top"
+                        Click="CloseBtn_Click"
+                        ToolTip="Close">
+                    <Path Data="M 0,0 L 10,10 M 10,0 L 0,10"
+                          Stroke="{DynamicResource SecondaryText}"
+                          StrokeThickness="1.5"
+                          StrokeStartLineCap="Round"
+                          StrokeEndLineCap="Round"/>
+                </Button>
+            </Grid>
+
+            <Rectangle Height="1" Margin="0,18,0,18" Fill="{DynamicResource SeparatorBrush}"/>
+
+            <Grid x:Name="Step1Container" Opacity="0.45">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Width="36" Height="36" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,2,0,0">
+                    <Ellipse x:Name="Step1Ring"
+                             Stroke="{DynamicResource SecondaryText}"
+                             StrokeThickness="1.5"
+                             Fill="Transparent"/>
+                    <TextBlock x:Name="Step1Icon" Text="1"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="13" FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryText}"/>
+                </Grid>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="Step1Title" Text="ModLoader"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryText}"/>
+                    <TextBlock Text="github.com/QYCottage  ›  WINHTTP.dll"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryText}"
+                               Margin="0,3,0,0"/>
+                    <ProgressBar x:Name="Step1Progress"
+                                 Style="{StaticResource MinimalProgressBar}"
+                                 Value="0"
+                                 Margin="0,10,0,0"/>
+                    <TextBlock x:Name="Step1StatusText"
+                               Text="Waiting..."
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryText}"
+                               Margin="0,7,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <Rectangle Height="16" Fill="Transparent"/>
+
+            <Grid x:Name="Step2Container" Opacity="0.45">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Width="36" Height="36" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,2,0,0">
+                    <Ellipse x:Name="Step2Ring"
+                             Stroke="{DynamicResource SecondaryText}"
+                             StrokeThickness="1.5"
+                             Fill="Transparent"/>
+                    <TextBlock x:Name="Step2Icon" Text="2"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="13" FontWeight="Medium"
+                               Foreground="{DynamicResource SecondaryText}"/>
+                </Grid>
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock x:Name="Step2Title" Text="Vibrant Visual Patcher"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryText}"/>
+                    <TextBlock Text="github.com/th4llium  ›  vibrant-visuals-patcher.dll"
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryText}"
+                               Margin="0,3,0,0"/>
+                    <ProgressBar x:Name="Step2Progress"
+                                 Style="{StaticResource MinimalProgressBar}"
+                                 Value="0"
+                                 Margin="0,10,0,0"/>
+                    <TextBlock x:Name="Step2StatusText"
+                               Text="Waiting..."
+                               FontFamily="Segoe UI Variable, Segoe UI"
+                               FontSize="11"
+                               Foreground="{DynamicResource SecondaryText}"
+                               Margin="0,7,0,0"/>
+                </StackPanel>
+            </Grid>
+
+            <Rectangle Height="1" Margin="0,18,0,18" Fill="{DynamicResource SeparatorBrush}"/>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="StatusText"
+                           Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Text="Click Install to begin."
+                           FontFamily="Segoe UI Variable, Segoe UI"
+                           FontSize="12"
+                           Foreground="{DynamicResource SecondaryText}"/>
+
+                <Button Grid.Column="1"
+                        x:Name="InstallBtn"
+                        Content="Install"
+                        MinWidth="100"
+                        Style="{StaticResource PrimaryActionBtn}"
+                        Click="InstallBtn_Click"/>
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>

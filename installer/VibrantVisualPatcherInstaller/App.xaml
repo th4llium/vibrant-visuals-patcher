@@ -1,0 +1,17 @@
+<Application x:Class="VibrantVisualPatcherInstaller.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <SolidColorBrush x:Key="OpaqueWindowBg"   Color="#FF181818"/>
+        <SolidColorBrush x:Key="PanelBorder"      Color="#FF2C2C2C"/>
+        <SolidColorBrush x:Key="PrimaryText"      Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SecondaryText"    Color="#FF9E9E9E"/>
+        <SolidColorBrush x:Key="TrackBrush"       Color="#FF2B2B2B"/>
+        <SolidColorBrush x:Key="AccentBrush"      Color="#FFFFFFFF"/>
+        <SolidColorBrush x:Key="SeparatorBrush"   Color="#FF262626"/>
+        <SolidColorBrush x:Key="HoverBrush"       Color="#FF252525"/>
+        <SolidColorBrush x:Key="SuccessBrush"     Color="#FF6FCF97"/>
+        <SolidColorBrush x:Key="ErrorBrush"       Color="#FFEF5350"/>
+    </Application.Resources>
+</Application>

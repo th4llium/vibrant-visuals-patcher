@@ -12,3 +12,17 @@
 
 !src/
 !src/**
+
+!installer/
+!installer/**
+installer/**/bin/
+installer/**/bin/**
+installer/**/obj/
+installer/**/obj/**
+installer/**/.vs/
+installer/**/.vs/**
+installer/**/*.user
+installer/**/*.suo
+*.exe
+*.dll
+*.pdb

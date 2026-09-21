@@ -2,7 +2,7 @@
 
 `vibrant-visuals-patcher` is a native Minecraft Bedrock for Windows mod that enables Vibrant Visuals on DX12-capable devices that Minecraft blocks through renderer, feature-level, vendor, device, or driver checks.
 
-Version 1.1.0 targets **Minecraft for Windows Client 26.5X**.
+Version 1.1.1 targets **Minecraft for Windows Client 26.5X and older versions**.
 
 The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecraft's normal Vibrant Visuals path can request **D3D12 FL12.1+**, which blocks older GPUs and iGPUs even when the deferred renderer can still run.
 
@@ -19,19 +19,13 @@ The main goal is support for **DirectX 12 Feature Level 11.0+** devices. Minecra
 ### Automatic (Recommended)
 
 1. Download **`VibrantVisualPatcherInstaller.exe`** from [Releases](https://github.com/th4llium/vibrant-visuals-patcher/releases).
-2. Run it and click **Install**. It automatically downloads ModLoader (`WINHTTP.dll`) and `vibrant-visuals-patcher.dll` directly to your Minecraft folder.
+2. Run it and click **Install**. It automatically detects your Minecraft installation (UWP / Microsoft Store / Xbox App), downloads ModLoader (`WINHTTP.dll`), and installs `vibrant-visuals-patcher.dll` to both your game and `%APPDATA%` mods folders. If needed, you can also browse directly to your game folder.
 
 ### Manual
 
 1. Install [QYCottage/ModLoader](https://github.com/QYCottage/ModLoader).
 2. Download `vibrant-visuals-patcher.dll` from [Releases](https://github.com/th4llium/vibrant-visuals-patcher/releases).
-3. Put the DLL in your Minecraft mods folder.
-
-For the Xbox/GDK install, the folder is usually:
-
-```text
-C:\XboxGames\Minecraft for Windows\Content\mods
-```
+3. Put the DLL in your Minecraft mods folder (e.g. `C:\Program Files\WindowsApps\Microsoft.MinecraftUWP_...\mods` or `C:\XboxGames\Minecraft for Windows\Content\mods`, as well as `%APPDATA%\Minecraft Bedrock\mods`).
 
 Start Minecraft normally after copying the DLL.
 
@@ -46,7 +40,7 @@ When BetterRenderDragon is loaded, `vibrant-visuals-patcher` avoids taking over 
 Successful startup should look similar to:
 
 ```text
-[INFO] vibrant-visuals-patcher v1.1.0
+[INFO] vibrant-visuals-patcher v1.1.1
 [INFO] Author: th4llium
 [INFO] D3D12 vendor gate patched early.
 [INFO] D3D12 sampler-flags patched early.

@@ -14,7 +14,7 @@ namespace VibrantVisualPatcherInstaller.Helpers
         static Installer()
         {
             Http.Timeout = TimeSpan.FromSeconds(60);
-            Http.DefaultRequestHeaders.Add("User-Agent", "VibrantVisualPatcherInstaller/1.1.0");
+            Http.DefaultRequestHeaders.Add("User-Agent", "VibrantVisualPatcherInstaller/1.1.1");
         }
 
         internal static async Task<string> GetLatestAssetUrl(string owner, string repo, string assetName)
@@ -45,7 +45,7 @@ namespace VibrantVisualPatcherInstaller.Helpers
             catch { }
 
             if (repo == "vibrant-visuals-patcher" && assetName == "vibrant-visuals-patcher.dll")
-                return $"https://github.com/{owner}/{repo}/releases/download/v1.1.0/{assetName}";
+                return $"https://github.com/{owner}/{repo}/releases/download/v1.1.1/{assetName}";
 
             return directUrl;
         }

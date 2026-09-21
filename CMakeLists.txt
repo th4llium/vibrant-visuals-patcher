@@ -65,8 +65,6 @@ else()
 endif()
 
 target_link_libraries(vibrant_visuals_patcher PRIVATE
-    d3d12
-    dxgi
     dxguid)
 
 if(VVP_FETCH_DEPS)

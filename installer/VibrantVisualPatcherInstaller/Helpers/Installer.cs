@@ -45,7 +45,7 @@ namespace VibrantVisualPatcherInstaller.Helpers
             catch { }
 
             if (repo == "vibrant-visuals-patcher" && assetName == "vibrant-visuals-patcher.dll")
-                return $"https://github.com/{owner}/{repo}/releases/download/v1.0.3/{assetName}";
+                return $"https://github.com/{owner}/{repo}/releases/download/v1.1.0/{assetName}";
 
             return directUrl;
         }

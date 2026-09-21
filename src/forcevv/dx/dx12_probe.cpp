@@ -41,8 +41,21 @@ bool envDisabled(const wchar_t* name) {
     return length != 0 && value[0] == L'0';
 }
 
+typedef HRESULT (WINAPI *PFN_D3D12_CREATE_DEVICE)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
+typedef HRESULT (WINAPI *PFN_CREATE_DXGI_FACTORY1)(REFIID, void**);
+typedef HRESULT (WINAPI *PFN_CREATE_DXGI_FACTORY2)(UINT, REFIID, void**);
+
 HRESULT createD3D12Device(IDXGIAdapter1* adapter, D3D_FEATURE_LEVEL level) {
-    return D3D12CreateDevice(adapter, level, __uuidof(ID3D12Device), nullptr);
+    static HMODULE hD3D12 = LoadLibraryW(L"d3d12.dll");
+    if (!hD3D12) {
+        return E_FAIL;
+    }
+    static auto pfnCreateDevice = reinterpret_cast<PFN_D3D12_CREATE_DEVICE>(
+        GetProcAddress(hD3D12, "D3D12CreateDevice"));
+    if (!pfnCreateDevice) {
+        return E_FAIL;
+    }
+    return pfnCreateDevice(adapter, level, __uuidof(ID3D12Device), nullptr);
 }
 
 AdapterInfo readAdapter(IDXGIAdapter1* adapter) {
@@ -72,10 +85,24 @@ ProbeResult probeD3D12Support() {
     ProbeResult result{};
     result.allowFl11 = !envDisabled(L"VVP_ALLOW_D3D12_FL11");
 
+    HMODULE hDxgi = LoadLibraryW(L"dxgi.dll");
+    if (!hDxgi) {
+        result.factoryResult = HRESULT_FROM_WIN32(GetLastError());
+        return result;
+    }
+
+    auto pfnCreateDXGIFactory2 = reinterpret_cast<PFN_CREATE_DXGI_FACTORY2>(
+        GetProcAddress(hDxgi, "CreateDXGIFactory2"));
+    auto pfnCreateDXGIFactory1 = reinterpret_cast<PFN_CREATE_DXGI_FACTORY1>(
+        GetProcAddress(hDxgi, "CreateDXGIFactory1"));
+
     ComPtr<IDXGIFactory4> factory;
-    HRESULT hr = CreateDXGIFactory2(0, IID_PPV_ARGS(&factory));
-    if (FAILED(hr)) {
-        hr = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
+    HRESULT hr = E_FAIL;
+    if (pfnCreateDXGIFactory2) {
+        hr = pfnCreateDXGIFactory2(0, IID_PPV_ARGS(&factory));
+    }
+    if (FAILED(hr) && pfnCreateDXGIFactory1) {
+        hr = pfnCreateDXGIFactory1(IID_PPV_ARGS(&factory));
     }
 
     result.factoryResult = hr;

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using VibrantVisualPatcherInstaller.Helpers;
+using IOPath = System.IO.Path;
 
 namespace VibrantVisualPatcherInstaller
 {
@@ -17,9 +19,7 @@ namespace VibrantVisualPatcherInstaller
         private readonly bool _isDark;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private bool _isInstalled = false;
-
-        private const string ContentPath = @"C:\XboxGames\Minecraft for Windows\Content";
-        private const string ModsPath    = @"C:\XboxGames\Minecraft for Windows\Content\mods";
+        private string _targetPath;
 
         public MainWindow()
         {
@@ -38,6 +38,49 @@ namespace VibrantVisualPatcherInstaller
                 ApplyLightTheme();
 
             FadeIn();
+            InitTargetPath();
+        }
+
+        private void InitTargetPath()
+        {
+            _targetPath = MinecraftLocator.Locate();
+            if (!string.IsNullOrEmpty(_targetPath))
+            {
+                PathText.Text = _targetPath;
+                PathText.ToolTip = _targetPath;
+                StatusText.Text = "Ready to install.";
+                InstallBtn.IsEnabled = true;
+            }
+            else
+            {
+                PathText.Text = "Minecraft Bedrock not found";
+                PathText.ToolTip = "Click Browse to locate Minecraft folder";
+                StatusText.Text = "Please locate your Minecraft folder.";
+                InstallBtn.IsEnabled = false;
+            }
+        }
+
+        private void BrowseBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Select Minecraft.Windows.exe",
+                Filter = "Minecraft Executable (Minecraft.Windows.exe)|Minecraft.Windows.exe|All Executables (*.exe)|*.exe|All files (*.*)|*.*",
+                FileName = "Minecraft.Windows.exe"
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                var selectedDir = IOPath.GetDirectoryName(dlg.FileName);
+                if (!string.IsNullOrEmpty(selectedDir) && Directory.Exists(selectedDir))
+                {
+                    _targetPath = selectedDir;
+                    PathText.Text = _targetPath;
+                    PathText.ToolTip = _targetPath;
+                    InstallBtn.IsEnabled = true;
+                    StatusText.Text = "Ready to install.";
+                }
+            }
         }
 
         private async void InstallBtn_Click(object sender, RoutedEventArgs e)
@@ -49,7 +92,20 @@ namespace VibrantVisualPatcherInstaller
                 return;
             }
 
+            if (Process.GetProcessesByName("Minecraft.Windows").Length > 0)
+            {
+                StatusText.Text = "Please close Minecraft before installing.";
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_targetPath) || !Directory.Exists(_targetPath))
+            {
+                StatusText.Text = "Please select a valid Minecraft directory first.";
+                return;
+            }
+
             InstallBtn.IsEnabled = false;
+            BrowseBtn.IsEnabled = false;
             InstallBtn.Content = "Installing...";
             await RunInstall();
         }
@@ -86,6 +142,10 @@ namespace VibrantVisualPatcherInstaller
         {
             try
             {
+                string winhttpDest = IOPath.Combine(_targetPath, "WINHTTP.dll");
+                string gameModsDir = IOPath.Combine(_targetPath, "mods");
+                string mainPatcherDest = IOPath.Combine(gameModsDir, "vibrant-visuals-patcher.dll");
+
                 await RunStep(
                     stepContainer: Step1Container,
                     ring:          Step1Ring,
@@ -97,7 +157,7 @@ namespace VibrantVisualPatcherInstaller
                     owner:         "QYCottage",
                     repo:          "ModLoader",
                     assetName:     "WINHTTP.dll",
-                    destPath:      System.IO.Path.Combine(ContentPath, "WINHTTP.dll"));
+                    destPath:      winhttpDest);
 
                 await RunStep(
                     stepContainer: Step2Container,
@@ -110,12 +170,45 @@ namespace VibrantVisualPatcherInstaller
                     owner:         "th4llium",
                     repo:          "vibrant-visuals-patcher",
                     assetName:     "vibrant-visuals-patcher.dll",
-                    destPath:      System.IO.Path.Combine(ModsPath, "vibrant-visuals-patcher.dll"));
+                    destPath:      mainPatcherDest);
+
+                SyncAdditionalModDirectories(mainPatcherDest);
 
                 await OnAllDone();
             }
             catch (OperationCanceledException) { }
-            catch (Exception) { }
+            catch (Exception ex)
+            {
+                BrowseBtn.IsEnabled = true;
+                InstallBtn.IsEnabled = true;
+                InstallBtn.Content = "Retry";
+                StatusText.Text = "Installation failed: " + ex.Message;
+            }
+        }
+
+        private static void SyncAdditionalModDirectories(string sourceDllPath)
+        {
+            if (!File.Exists(sourceDllPath))
+                return;
+
+            try
+            {
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string appDataMods1 = IOPath.Combine(appData, "Minecraft Bedrock", "mods");
+                Directory.CreateDirectory(appDataMods1);
+                File.Copy(sourceDllPath, IOPath.Combine(appDataMods1, "vibrant-visuals-patcher.dll"), true);
+
+                string appDataPreview = IOPath.Combine(appData, "Minecraft Bedrock Preview");
+                if (Directory.Exists(appDataPreview))
+                {
+                    string appDataMods2 = IOPath.Combine(appDataPreview, "mods");
+                    Directory.CreateDirectory(appDataMods2);
+                    File.Copy(sourceDllPath, IOPath.Combine(appDataMods2, "vibrant-visuals-patcher.dll"), true);
+                }
+            }
+            catch
+            {
+            }
         }
 
         private async Task RunStep(
@@ -174,6 +267,7 @@ namespace VibrantVisualPatcherInstaller
                 ErrorStep(ring, icon, statusText, ex.Message);
                 StatusText.Text = "Installation failed. Close and try again.";
                 InstallBtn.IsEnabled = true;
+                BrowseBtn.IsEnabled = true;
                 InstallBtn.Content = "Retry";
                 throw;
             }

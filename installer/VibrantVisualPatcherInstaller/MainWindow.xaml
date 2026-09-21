@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Vibrant Visual Patcher Installer"
-        Width="480" Height="405"
+        Width="480" Height="465"
         WindowStyle="None"
         Background="{DynamicResource OpaqueWindowBg}"
         ResizeMode="NoResize"
@@ -19,6 +19,39 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
+        <Style x:Key="SubtleBtn" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{DynamicResource PrimaryText}"/>
+            <Setter Property="FontFamily"      Value="Segoe UI Variable, Segoe UI"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="FontWeight"      Value="Medium"/>
+            <Setter Property="Padding"         Value="10,4"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource PanelBorder}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="CloseBtn" TargetType="Button">
             <Setter Property="Background"   Value="Transparent"/>
             <Setter Property="BorderBrush"  Value="Transparent"/>
@@ -133,7 +166,36 @@
                 </Button>
             </Grid>
 
-            <Rectangle Height="1" Margin="0,18,0,18" Fill="{DynamicResource SeparatorBrush}"/>
+            <Rectangle Height="1" Margin="0,18,0,14" Fill="{DynamicResource SeparatorBrush}"/>
+
+            <Border Background="{DynamicResource HoverBrush}" CornerRadius="6" Padding="12,8" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="INSTALL LOCATION"
+                                   FontFamily="Segoe UI Variable, Segoe UI"
+                                   FontSize="9" FontWeight="Bold"
+                                   Foreground="{DynamicResource SecondaryText}"
+                                   Opacity="0.7"/>
+                        <TextBlock x:Name="PathText"
+                                   Text="Detecting Minecraft installation..."
+                                   FontFamily="Segoe UI Variable, Segoe UI"
+                                   FontSize="11.5"
+                                   Foreground="{DynamicResource PrimaryText}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,8,0"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            x:Name="BrowseBtn"
+                            Content="Browse"
+                            Style="{StaticResource SubtleBtn}"
+                            VerticalAlignment="Center"
+                            Click="BrowseBtn_Click"/>
+                </Grid>
+            </Border>
 
             <Grid x:Name="Step1Container" Opacity="0.45">
                 <Grid.ColumnDefinitions>

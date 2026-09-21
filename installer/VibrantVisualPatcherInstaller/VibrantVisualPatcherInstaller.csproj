@@ -84,6 +84,7 @@
     <Compile Include="Helpers\DwmHelper.cs"/>
     <Compile Include="Helpers\ThemeHelper.cs"/>
     <Compile Include="Helpers\Installer.cs"/>
+    <Compile Include="Helpers\MinecraftLocator.cs"/>
   </ItemGroup>
 
   <ItemGroup>
